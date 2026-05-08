@@ -1,0 +1,19 @@
+REGISTER flowtest1778245045966 flowtest1778245045966@example.com
+(node:11804) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///E:/CSE447%20Project/mern-social/backend/validate_backend.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to E:\CSE447 Project\mern-social\backend\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+REGISTER OK flowtest1778245045966 flowtest1778245045966@example.com
+LOGIN OK OTP was logged locally because SMTP is not configured.
+OTP LOG LINE [2026-05-08T12:57:26.608Z] OTP to flowtest1778245045966@example.com: 632375
+OTP CODE 632375
+VERIFY OK true
+PROFILE GET flowtest1778245045966@example.com flowtest1778245045966
+PROFILE PUT OK {
+  displayName: 'Verified Tester',
+  bio: 'Backend validation works',
+  avatarUrl: 'https://example.com/avatar.png'
+}
+POST CREATE OK 69fdddb641b1d1c5fac827a2
+POSTS GET COUNT 3
+FIRST POST Secure post

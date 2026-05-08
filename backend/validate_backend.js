@@ -1,0 +1,46 @@
+﻿import fs from "fs";
+import path from "path";
+const base = "http://localhost:4000";
+const username = `flowtest${Date.now()}`;
+const email = `${username}@example.com`;
+const password = "Password123!";
+const logPath = path.resolve("data", "otp_email_log.txt");
+let cookie = "";
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers || {}), "Content-Type": "application/json" };
+  if (cookie) headers.Cookie = cookie;
+  const res = await fetch(base + path, { ...opts, headers, redirect: "manual" });
+  const setCookie = res.headers.get("set-cookie");
+  if (setCookie) cookie = setCookie;
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} ${text}`);
+  return body;
+}
+(async () => {
+  console.log("REGISTER", username, email);
+  const reg = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ username, email, password, phone: "555-1111" }) });
+  console.log("REGISTER OK", reg.user.username, reg.user.email);
+  const login = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
+  console.log("LOGIN OK", login.message);
+  const logData = fs.readFileSync(logPath, "utf8");
+  const entries = logData.split(/\r?\n/).filter((line) => line.includes(email));
+  const last = entries.pop();
+  if (!last) throw new Error("OTP log entry not found");
+  console.log("OTP LOG LINE", last);
+  const match = last.match(/([0-9]{6})$/);
+  if (!match) throw new Error("OTP code not parsed from log");
+  const code = match[1];
+  console.log("OTP CODE", code);
+  const verify = await api("/api/auth/verify", { method: "POST", body: JSON.stringify({ username, otp: code }) });
+  console.log("VERIFY OK", verify.user.emailVerified);
+  const profile = await api("/api/users/profile", { method: "GET" });
+  console.log("PROFILE GET", profile.user.email, profile.user.profile.displayName);
+  const update = await api("/api/users/profile", { method: "PUT", body: JSON.stringify({ displayName: "Verified Tester", bio: "Backend validation works", avatarUrl: "https://example.com/avatar.png", phone: "555-6789" }) });
+  console.log("PROFILE PUT OK", update.user.profile);
+  const created = await api("/api/posts", { method: "POST", body: JSON.stringify({ title: "Secure post", body: "This is a backend-integrated secure post." }) });
+  console.log("POST CREATE OK", created.post.id);
+  const feed = await api("/api/posts", { method: "GET" });
+  console.log("POSTS GET COUNT", feed.posts.length);
+  console.log("FIRST POST", feed.posts[0] ? feed.posts[0].title : "none");
+})();

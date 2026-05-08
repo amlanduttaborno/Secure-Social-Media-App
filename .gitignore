@@ -1,0 +1,29 @@
+node_modules
+.env
+.DS_Store
+npm-debug.log*
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Key store and sensitive data
+backend/data/key_store.json
+backend/data/otp_email_log.txt
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+
+# Logs
+logs
+*.log
