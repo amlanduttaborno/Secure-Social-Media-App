@@ -1,4 +1,4 @@
-# Secure Social MERN App
+# Secure Social Media App
 
 A secure web application built with Node.js, Express, MongoDB, React, and Tailwind CSS.
 The application implements encrypted user storage, RSA/ECC cryptography, HMAC integrity checks, JWT session cookies, email OTP-based 2FA, encrypted posts, friend requests, and secure messaging.
