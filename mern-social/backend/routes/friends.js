@@ -3,24 +3,31 @@ const User = require('../models/User');
 const FriendRequest = require('../models/FriendRequest');
 const Friendship = require('../models/Friendship');
 const { verifyToken } = require('../middleware/auth');
-const { hashText, eccEncrypt, eccDecrypt, rsaDecrypt } = require('../utils/kms');
+const { hashText, eccEncrypt, eccDecrypt, rsaDecrypt, verifyHmac } = require('../utils/kms');
 
 const router = express.Router();
 
 function buildFriendResponse(record) {
-  if (!verifyHmac(`${record.friendEnc}.${record.friendEphemeralPublicKey}`, record.friendMac) || !verifyHmac(`${record.friendUsernameEnc}.${record.friendUsernameEphemeralPublicKey}`, record.friendUsernameMac)) {
-    throw new Error('Friend integrity validation failed');
+  const isFriendValid = verifyHmac(`${record.friendEnc}.${record.friendEphemeralPublicKey}`, record.friendMac);
+  const isUsernameValid = verifyHmac(`${record.friendUsernameEnc}.${record.friendUsernameEphemeralPublicKey}`, record.friendUsernameMac);
+
+  let friendUsername = 'unknown';
+  if (isUsernameValid) {
+    try {
+      friendUsername = eccDecrypt({
+        ciphertext: record.friendUsernameEnc,
+        ephemeralPublicKey: record.friendUsernameEphemeralPublicKey,
+        mac: record.friendUsernameMac,
+      });
+    } catch (e) {
+      friendUsername = '[corrupted]';
+    }
   }
 
-  const friendUsername = eccDecrypt({
-    ciphertext: record.friendUsernameEnc,
-    ephemeralPublicKey: record.friendUsernameEphemeralPublicKey,
-    mac: record.friendUsernameMac,
-  });
-
   return {
-    id: record.friend.toString(),
+    id: record.friend ? record.friend.toString() : 'unknown',
     username: friendUsername,
+    integrityError: !isFriendValid || !isUsernameValid,
     createdAt: record.createdAt,
   };
 }

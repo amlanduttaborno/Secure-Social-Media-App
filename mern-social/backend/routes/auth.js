@@ -28,22 +28,20 @@ const COOKIE_OPTIONS = {
 };
 
 function createUserResponse(user) {
-  const username = safeRsaDecrypt(user.usernameEnc, user.usernameMac, user.usernameKeyVersion || undefined);
-  const email = safeRsaDecrypt(user.emailEnc, user.emailMac, user.emailKeyVersion || undefined);
-  if (!username || !email) {
-    throw new Error('User integrity validation failed');
-  }
+  const username = safeRsaDecrypt(user.usernameEnc, user.usernameMac, user.usernameKeyVersion || undefined) || 'unknown';
+  const email = safeRsaDecrypt(user.emailEnc, user.emailMac, user.emailKeyVersion || undefined) || 'unknown@example.com';
 
   const phone = user.phoneEnc
     ? safeRsaDecrypt(user.phoneEnc, user.phoneMac, user.phoneKeyVersion || undefined)
     : '';
 
-  const displayName = user.profile.displayNameEnc
-    ? safeRsaDecrypt(user.profile.displayNameEnc, user.profile.displayNameMac, user.profile.displayNameKeyVersion || undefined)
+  const profile = user.profile || {};
+  const displayName = profile.displayNameEnc
+    ? safeRsaDecrypt(profile.displayNameEnc, profile.displayNameMac, profile.displayNameKeyVersion || undefined)
     : '';
 
-  const bio = user.profile.bioEnc
-    ? safeRsaDecrypt(user.profile.bioEnc, user.profile.bioMac, user.profile.bioKeyVersion || undefined)
+  const bio = profile.bioEnc
+    ? safeRsaDecrypt(profile.bioEnc, profile.bioMac, profile.bioKeyVersion || undefined)
     : '';
 
   return {
@@ -56,12 +54,12 @@ function createUserResponse(user) {
     profile: {
       displayName,
       bio,
-      avatarUrl: user.profile.avatarUrl,
+      avatarUrl: profile.avatarUrl || '',
     },
   };
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
   const { username, email, phone, password, recoveryPin } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email, and password are required' });
@@ -109,12 +107,11 @@ router.post('/register', async (req, res) => {
 
     return res.status(201).json({ message: 'Registration successful', user: createUserResponse(user) });
   } catch (err) {
-    console.error('[AUTH REGISTER ERROR]', err);
-    return res.status(500).json({ error: 'Server error' });
+    next(err);
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
@@ -151,12 +148,11 @@ router.post('/login', async (req, res) => {
     const pendingUsername = safeRsaDecrypt(user.usernameEnc, user.usernameMac, user.usernameKeyVersion);
     return res.json({ pending: true, message, username: pendingUsername });
   } catch (err) {
-    console.error('[AUTH LOGIN ERROR]', err);
-    return res.status(500).json({ error: 'Server error' });
+    next(err);
   }
 });
 
-router.post('/verify', async (req, res) => {
+router.post('/verify', async (req, res, next) => {
   const { username, otp } = req.body;
   if (!username || !otp) {
     return res.status(400).json({ error: 'Username and OTP are required' });
@@ -195,8 +191,7 @@ router.post('/verify', async (req, res) => {
     res.cookie('token', token, COOKIE_OPTIONS);
     return res.json({ message: 'Verification successful', user: createUserResponse(user) });
   } catch (err) {
-    console.error('[AUTH VERIFY ERROR]', err);
-    return res.status(500).json({ error: 'Server error' });
+    next(err);
   }
 });
 

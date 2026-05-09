@@ -2,23 +2,29 @@ const express = require('express');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
 const { verifyToken } = require('../middleware/auth');
-const { rsaDecrypt } = require('../utils/kms');
+const { rsaDecrypt, safeRsaDecrypt, verifyHmac } = require('../utils/kms');
 
 const router = express.Router();
 
 function createUserResponse(user) {
+  if (!user) return null;
+  const username = safeRsaDecrypt(user.usernameEnc, user.usernameMac, user.usernameKeyVersion) || 'unknown';
+  const email = safeRsaDecrypt(user.emailEnc, user.emailMac, user.emailKeyVersion) || 'unknown@example.com';
+
   return {
     id: user._id,
-    username: rsaDecrypt(user.usernameEnc, user.usernameKeyVersion),
-    email: rsaDecrypt(user.emailEnc, user.emailKeyVersion),
+    username,
+    email,
     role: user.role,
     emailVerified: user.emailVerified,
     profile: {
-      displayName: user.profile.displayNameEnc
+      displayName: user.profile?.displayNameEnc && verifyHmac(user.profile.displayNameEnc, user.profile.displayNameMac)
         ? rsaDecrypt(user.profile.displayNameEnc, user.profile.displayNameKeyVersion)
+        : 'Unknown User',
+      bio: user.profile?.bioEnc && verifyHmac(user.profile.bioEnc, user.profile.bioMac)
+        ? rsaDecrypt(user.profile.bioEnc, user.profile.bioKeyVersion)
         : '',
-      bio: user.profile.bioEnc ? rsaDecrypt(user.profile.bioEnc, user.profile.bioKeyVersion) : '',
-      avatarUrl: user.profile.avatarUrl,
+      avatarUrl: user.profile?.avatarUrl || '',
     },
   };
 }

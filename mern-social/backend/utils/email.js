@@ -34,8 +34,9 @@ function getSmtpConfig() {
     secure,
     requireTLS,
     tls: { rejectUnauthorized },
-    auth: { user, pass },
+    auth: { user, pass: pass.replace(/\s+/g, '') },
     from,
+    service: host.includes('gmail.com') ? 'gmail' : undefined,
   };
 }
 
@@ -54,14 +55,18 @@ async function sendOtpEmail(email, code) {
     return { sent: false, configured: false };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    requireTLS: config.requireTLS,
-    tls: config.tls,
-    auth: config.auth,
-  });
+  const transporterOptions = config.service === 'gmail' 
+    ? { service: 'gmail', auth: config.auth }
+    : {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        requireTLS: config.requireTLS,
+        tls: config.tls,
+        auth: config.auth,
+      };
+
+  const transporter = nodemailer.createTransport(transporterOptions);
 
   try {
     await transporter.sendMail({
@@ -70,9 +75,10 @@ async function sendOtpEmail(email, code) {
       subject: 'Secure Social verification code',
       text,
     });
+    console.log(`[SMTP] Email sent successfully to ${email}`);
     return { sent: true, configured: true };
   } catch (err) {
-    console.error('[OTP EMAIL ERROR]', err);
+    console.error('[OTP EMAIL ERROR] Full error:', err);
     return { sent: false, configured: true, error: err.message || 'SMTP send failed' };
   }
 }

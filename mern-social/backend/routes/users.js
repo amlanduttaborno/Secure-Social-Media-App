@@ -11,11 +11,13 @@ function createUserResponse(user) {
   const phone = user.phoneEnc && user.phoneMac && verifyHmac(user.phoneEnc, user.phoneMac)
     ? rsaDecrypt(user.phoneEnc, user.phoneKeyVersion || undefined)
     : '';
-  const displayName = user.profile.displayNameEnc && user.profile.displayNameMac && verifyHmac(user.profile.displayNameEnc, user.profile.displayNameMac)
-    ? rsaDecrypt(user.profile.displayNameEnc, user.profile.displayNameKeyVersion || undefined)
+
+  const profile = user.profile || {};
+  const displayName = profile.displayNameEnc && profile.displayNameMac && verifyHmac(profile.displayNameEnc, profile.displayNameMac)
+    ? rsaDecrypt(profile.displayNameEnc, profile.displayNameKeyVersion || undefined)
     : '';
-  const bio = user.profile.bioEnc && user.profile.bioMac && verifyHmac(user.profile.bioEnc, user.profile.bioMac)
-    ? rsaDecrypt(user.profile.bioEnc, user.profile.bioKeyVersion || undefined)
+  const bio = profile.bioEnc && profile.bioMac && verifyHmac(profile.bioEnc, profile.bioMac)
+    ? rsaDecrypt(profile.bioEnc, profile.bioKeyVersion || undefined)
     : '';
 
   return {
@@ -28,48 +30,56 @@ function createUserResponse(user) {
     profile: {
       displayName,
       bio,
-      avatarUrl: user.profile.avatarUrl,
+      avatarUrl: profile.avatarUrl || '',
     },
   };
 }
 
-router.get('/profile', verifyToken, async (req, res) => {
-  const user = await User.findById(req.user.id).select('-passwordHash');
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+router.get('/profile', verifyToken, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    return res.json({ user: createUserResponse(user) });
+  } catch (err) {
+    next(err);
   }
-  return res.json({ user: createUserResponse(user) });
 });
 
-router.put('/profile', verifyToken, async (req, res) => {
+router.put('/profile', verifyToken, async (req, res, next) => {
   const { displayName, bio, avatarUrl, phone } = req.body;
-  const user = await User.findById(req.user.id);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (displayName !== undefined) {
+      const encrypted = rsaEncrypt(displayName || '');
+      user.profile.displayNameEnc = encrypted.ciphertext;
+      user.profile.displayNameMac = encrypted.mac;
+      user.profile.displayNameKeyVersion = encrypted.keyVersion;
+    }
+    if (bio !== undefined) {
+      const encrypted = rsaEncrypt(bio || '');
+      user.profile.bioEnc = encrypted.ciphertext;
+      user.profile.bioMac = encrypted.mac;
+      user.profile.bioKeyVersion = encrypted.keyVersion;
+    }
+    if (avatarUrl !== undefined) {
+      user.profile.avatarUrl = avatarUrl;
+    }
+    if (phone !== undefined) {
+      const encrypted = rsaEncrypt(phone || '');
+      user.phoneEnc = encrypted.ciphertext;
+      user.phoneMac = encrypted.mac;
+      user.phoneKeyVersion = encrypted.keyVersion;
+    }
+    await user.save();
+    return res.json({ user: createUserResponse(user) });
+  } catch (err) {
+    next(err);
   }
-  if (displayName !== undefined) {
-    const encrypted = rsaEncrypt(displayName || '');
-    user.profile.displayNameEnc = encrypted.ciphertext;
-    user.profile.displayNameMac = encrypted.mac;
-    user.profile.displayNameKeyVersion = encrypted.keyVersion;
-  }
-  if (bio !== undefined) {
-    const encrypted = rsaEncrypt(bio || '');
-    user.profile.bioEnc = encrypted.ciphertext;
-    user.profile.bioMac = encrypted.mac;
-    user.profile.bioKeyVersion = encrypted.keyVersion;
-  }
-  if (avatarUrl !== undefined) {
-    user.profile.avatarUrl = avatarUrl;
-  }
-  if (phone !== undefined) {
-    const encrypted = rsaEncrypt(phone || '');
-    user.phoneEnc = encrypted.ciphertext;
-    user.phoneMac = encrypted.mac;
-    user.phoneKeyVersion = encrypted.keyVersion;
-  }
-  await user.save();
-  return res.json({ user: createUserResponse(user) });
 });
 
 module.exports = router;

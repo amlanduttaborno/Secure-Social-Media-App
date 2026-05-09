@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -23,14 +24,39 @@ const followRoutes = require('./routes/follow');
 const friendRoutes = require('./routes/friends');
 const messageRoutes = require('./routes/messages');
 
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/secure-social';
 
 app.use(express.json());
 app.use(cookieParser());
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+].filter(Boolean).map(o => o.replace(/\/$/, ''));
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS REJECTED] ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
@@ -45,6 +71,18 @@ app.use('/api/users', userRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/messages', messageRoutes);
+
+app.use((err, req, res, next) => {
+  const logDir = path.join(__dirname, 'data');
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+  const errorLog = `[${new Date().toISOString()}] ${req.method} ${req.url}: ${err.stack}\n`;
+  fs.appendFileSync(path.join(logDir, 'error_log.txt'), errorLog);
+  console.error(`[ERROR] ${req.method} ${req.url}:`, err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
 
 app.get('/api/status', (req, res) => {
   res.json({ status: 'ok', message: 'Secure social backend running' });

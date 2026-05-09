@@ -44,11 +44,22 @@ function loadKeys() {
   }
 
   const stored = JSON.parse(fs.readFileSync(KEY_PATH, 'utf-8'));
+  let modified = false;
   if (!stored.macKey) {
     stored.macKey = crypto.randomBytes(32).toString('base64');
+    modified = true;
   }
-  stored.previousKeys = stored.previousKeys || [];
-  stored.version = stored.version || 1;
+  if (!stored.previousKeys) {
+    stored.previousKeys = [];
+    modified = true;
+  }
+  if (!stored.version) {
+    stored.version = 1;
+    modified = true;
+  }
+  if (modified) {
+    saveKeys(stored);
+  }
   return stored;
 }
 
@@ -170,20 +181,25 @@ function rsaDecrypt(ciphertext, version = keys.version) {
   if (!Array.isArray(chunks)) {
     return ciphertext;
   }
-  const keySet = getKeySet(version);
-  const decrypted = Buffer.concat(
-    chunks.map((chunk) =>
-      crypto.privateDecrypt(
-        {
-          key: keySet.rsaPrivateKey,
-          padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-          oaepHash: 'sha256',
-        },
-        Buffer.from(chunk, 'base64')
+  try {
+    const keySet = getKeySet(version);
+    const decrypted = Buffer.concat(
+      chunks.map((chunk) =>
+        crypto.privateDecrypt(
+          {
+            key: keySet.rsaPrivateKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha256',
+          },
+          Buffer.from(chunk, 'base64')
+        )
       )
-    )
-  );
-  return decrypted.toString('utf8');
+    );
+    return decrypted.toString('utf8');
+  } catch (err) {
+    console.error('[KMS RSA DECRYPT ERROR]', err.message);
+    return '';
+  }
 }
 
 function safeRsaDecrypt(ciphertext, mac, version = keys.version) {
