@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section class="form-card">
+    <h1>Edit Profile</h1>
+    <form method="post">
+      <label>Email<input type="email" name="email" value="{{ email }}" required></label>
+      <label>Contact<input type="text" name="contact" value="{{ contact }}" required></label>
+      <button type="submit">Save changes</button>
+    </form>
+  </section>
+{% endblock %}

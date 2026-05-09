@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section class="card">
+    <h1>OTP Log</h1>
+    <p>This page displays the most recent OTP entries from the local log file. Use it only for testing when SMTP is not configured.</p>
+    <div class="form-card">
+      <pre style="white-space: pre-wrap; font-family: monospace;">{% for line in lines %}{{ line }}{% endfor %}</pre>
+    </div>
+    <a class="button" href="{{ url_for('verify') }}">Back to verification</a>
+  </section>
+{% endblock %}

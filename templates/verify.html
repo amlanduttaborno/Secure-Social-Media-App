@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section class="form-card">
+    <h1>Two-Step Verification</h1>
+    <p>Enter the one-time code sent during login.</p>
+    <form method="post">
+      <label>Verification code<input type="text" name="otp" pattern="\d{6}" required></label>
+      <button type="submit">Verify</button>
+    </form>
+    {% if not smtp_configured %}
+      <div class="message info" style="margin-top:1rem;">
+        No SMTP configured? <a href="{{ url_for('otp_log') }}">Open OTP log</a> for the latest code.
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
